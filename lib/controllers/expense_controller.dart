@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/person.dart';
 import '../models/split.dart';
@@ -484,6 +485,32 @@ class ExpenseController extends ChangeNotifier {
     buf.writeln('${person.name} owes you: \$${balance.toStringAsFixed(2)}');
 
     return buf.toString();
+  }
+
+  // --- Budget ---
+
+  Future<void> setBudget(double amount, DateTime startDate, DateTime endDate) async {
+    final budget = Budget(
+      amount: amount,
+      startDate: startDate,
+      endDate: endDate,
+      createdAt: DateTime.now(),
+    );
+    await _db.insertBudget(budget);
+    notifyListeners();
+  }
+
+  Future<Budget?> getActiveBudget() async {
+    return _db.getActiveBudget();
+  }
+
+  Future<void> deleteBudget() async {
+    await _db.deleteBudget();
+    notifyListeners();
+  }
+
+  Future<Map<DateTime, double>> getDailySpending(DateTime start, DateTime end) async {
+    return _db.getDailyExpenses(start, end);
   }
 
   @override

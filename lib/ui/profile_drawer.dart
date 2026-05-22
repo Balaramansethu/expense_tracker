@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../controllers/expense_controller.dart';
 import '../models/person.dart';
+import 'budget_calendar_sheet.dart';
 import 'my_expenses_detail_sheet.dart';
 import 'person_tab_sheet.dart';
 
@@ -204,6 +205,30 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                 },
                 icon: const Icon(Icons.receipt_long, size: 18),
                 label: const Text('My Expense Detail'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Budget & Calendar button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (_) => BudgetCalendarSheet(controller: ctrl),
+                  ).whenComplete(() => _loadData());
+                },
+                icon: const Icon(Icons.calendar_month, size: 18),
+                label: const Text('Budget & Calendar'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),

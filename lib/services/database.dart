@@ -1,5 +1,6 @@
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
+import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/person.dart';
 import '../models/split.dart';
@@ -16,7 +17,7 @@ class DatabaseService {
     final path = join(await getDatabasesPath(), 'expenses.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE expenses(
@@ -49,6 +50,15 @@ class DatabaseService {
             FOREIGN KEY (person_id) REFERENCES people(id)
           )
         ''');
+        await db.execute('''
+          CREATE TABLE budgets(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            amount REAL NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            created_at TEXT NOT NULL
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
         if (oldVersion < 2) {
@@ -72,6 +82,17 @@ class DatabaseService {
               created_at TEXT NOT NULL,
               FOREIGN KEY (expense_id) REFERENCES expenses(id),
               FOREIGN KEY (person_id) REFERENCES people(id)
+            )
+          ''');
+        }
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE budgets(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              amount REAL NOT NULL,
+              start_date TEXT NOT NULL,
+              end_date TEXT NOT NULL,
+              created_at TEXT NOT NULL
             )
           ''');
         }
@@ -231,5 +252,66 @@ class DatabaseService {
     final result = await db.rawQuery('SELECT SUM(split_amount) as total FROM splits');
     if (result.isEmpty || result.first['total'] == null) return 0.0;
     return (result.first['total'] as num).toDouble();
+  }
+
+  // --- Budgets ---
+
+  Future<int> insertBudget(Budget budget) async {
+    final db = await database;
+    // Only keep one active budget — replace any existing
+    await db.delete('budgets');
+    return db.insert('budgets', budget.toMap());
+  }
+
+  Future<Budget?> getActiveBudget() async {
+    final db = await database;
+    final maps = await db.query('budgets', orderBy: 'created_at DESC', limit: 1);
+    if (maps.isEmpty) return null;
+    return Budget.fromMap(maps.first);
+  }
+
+  Future<void> deleteBudget() async {
+    final db = await database;
+    await db.delete('budgets');
+  }
+
+  /// Get daily expense totals (actual share = expense amount minus splits for that expense).
+  /// Returns a map of date (day precision) → total spent that day.
+  Future<Map<DateTime, double>> getDailyExpenses(DateTime start, DateTime end) async {
+    final db = await database;
+    final expenses = await db.query(
+      'expenses',
+      where: 'created_at >= ? AND created_at < ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      orderBy: 'created_at ASC',
+    );
+
+    // Get all splits in this range to compute actual share per day
+    final splits = await db.rawQuery(
+      'SELECT s.expense_id, s.split_amount FROM splits s '
+      'INNER JOIN expenses e ON e.id = s.expense_id '
+      'WHERE e.created_at >= ? AND e.created_at < ?',
+      [start.toIso8601String(), end.toIso8601String()],
+    );
+
+    // Sum splits per expense
+    final splitByExpense = <int, double>{};
+    for (final s in splits) {
+      final eid = s['expense_id'] as int;
+      splitByExpense[eid] = (splitByExpense[eid] ?? 0) + (s['split_amount'] as num).toDouble();
+    }
+
+    final daily = <DateTime, double>{};
+    for (final row in expenses) {
+      final createdAt = DateTime.parse(row['created_at'] as String);
+      final day = DateTime(createdAt.year, createdAt.month, createdAt.day);
+      final amount = (row['amount'] as num).toDouble();
+      final expenseId = row['id'] as int;
+      final splitAmount = splitByExpense[expenseId] ?? 0.0;
+      final actualShare = amount - splitAmount;
+      daily[day] = (daily[day] ?? 0) + actualShare;
+    }
+
+    return daily;
   }
 }
