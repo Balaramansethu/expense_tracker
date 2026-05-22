@@ -5,6 +5,7 @@ import 'package:permission_handler/permission_handler.dart';
 import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/person.dart';
+import '../models/recurring_expense.dart';
 import '../models/split.dart';
 import '../services/database.dart';
 import '../services/speech_service.dart';
@@ -60,6 +61,8 @@ class ExpenseController extends ChangeNotifier {
     await loadExpenses();
     await loadMonthlySummary();
     await loadPeople();
+    await loadRecurring();
+    await processRecurringExpenses();
   }
 
   Future<void> _initSpeech() async {
@@ -485,6 +488,217 @@ class ExpenseController extends ChangeNotifier {
     buf.writeln('${person.name} owes you: \$${balance.toStringAsFixed(2)}');
 
     return buf.toString();
+  }
+
+  // --- Save with image ---
+
+  Future<void> saveExpenseWithImage({
+    required double amount,
+    required String description,
+    required Category category,
+    String? imagePath,
+  }) async {
+    final expense = Expense(
+      amount: amount,
+      description: description,
+      category: category,
+      createdAt: DateTime.now(),
+      imagePath: imagePath,
+    );
+    await _db.insertExpense(expense);
+    clearVoiceState();
+    await _reload();
+  }
+
+  // --- Recurring Expenses ---
+
+  List<RecurringExpense> _recurringExpenses = [];
+  List<RecurringExpense> get recurringExpenses => _recurringExpenses;
+
+  Future<void> loadRecurring() async {
+    _recurringExpenses = await _db.getRecurringExpenses();
+    notifyListeners();
+  }
+
+  Future<void> addRecurring({
+    required double amount,
+    required String description,
+    required Category category,
+    required int dayOfMonth,
+  }) async {
+    final recurring = RecurringExpense(
+      amount: amount,
+      description: description,
+      category: category,
+      dayOfMonth: dayOfMonth,
+      createdAt: DateTime.now(),
+    );
+    await _db.insertRecurring(recurring);
+    await loadRecurring();
+  }
+
+  Future<void> updateRecurring(RecurringExpense recurring) async {
+    await _db.updateRecurring(recurring);
+    await loadRecurring();
+  }
+
+  Future<void> deleteRecurring(int id) async {
+    await _db.deleteRecurring(id);
+    await loadRecurring();
+  }
+
+  /// Auto-log recurring expenses that are due.
+  /// Called on app launch. For each active recurring expense,
+  /// checks if it should have been logged this month (or missed months).
+  Future<int> processRecurringExpenses() async {
+    final recurring = await _db.getRecurringExpenses();
+    final now = DateTime.now();
+    int logged = 0;
+
+    for (final r in recurring) {
+      if (!r.isActive) continue;
+
+      // Determine which months need logging
+      DateTime checkFrom;
+      if (r.lastLoggedAt != null) {
+        // Start from the month after last logged
+        checkFrom = DateTime(r.lastLoggedAt!.year, r.lastLoggedAt!.month + 1, 1);
+      } else {
+        // Never logged — start from creation month
+        checkFrom = DateTime(r.createdAt.year, r.createdAt.month, 1);
+      }
+
+      final currentMonth = DateTime(now.year, now.month, 1);
+
+      while (!checkFrom.isAfter(currentMonth)) {
+        final dueDay = r.dayOfMonth;
+        final dueDate = DateTime(checkFrom.year, checkFrom.month, dueDay);
+
+        // Only log if the due date has passed (or is today)
+        if (!dueDate.isAfter(now)) {
+          final expense = Expense(
+            amount: r.amount,
+            description: r.description,
+            category: r.category,
+            createdAt: dueDate,
+          );
+          await _db.insertExpense(expense);
+          logged++;
+        }
+
+        checkFrom = DateTime(checkFrom.year, checkFrom.month + 1, 1);
+      }
+
+      // Update last_logged_at
+      if (logged > 0 || r.lastLoggedAt == null) {
+        await _db.updateRecurring(r.copyWith(lastLoggedAt: now));
+      }
+    }
+
+    if (logged > 0) {
+      await _reload();
+      await loadRecurring();
+    }
+    return logged;
+  }
+
+  // --- Insights ---
+
+  Future<List<String>> generateInsights() async {
+    final insights = <String>[];
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    // This week vs last week
+    final weekStart = today.subtract(Duration(days: today.weekday - 1));
+    final lastWeekStart = weekStart.subtract(const Duration(days: 7));
+    final thisWeekSpent = await _db.getTotalInRange(weekStart, today.add(const Duration(days: 1)));
+    final lastWeekSpent = await _db.getTotalInRange(lastWeekStart, weekStart);
+
+    if (lastWeekSpent > 0 && thisWeekSpent > 0) {
+      final pctChange = ((thisWeekSpent - lastWeekSpent) / lastWeekSpent * 100).round();
+      if (pctChange > 15) {
+        insights.add('Spending is up $pctChange% this week compared to last week.');
+      } else if (pctChange < -15) {
+        insights.add('Great job! Spending is down ${-pctChange}% this week vs last week.');
+      }
+    }
+
+    // Category comparison: this week vs average
+    final thisWeekCats = await _db.getCategoryTotals(weekStart, today.add(const Duration(days: 1)));
+    final lastWeekCats = await _db.getCategoryTotals(lastWeekStart, weekStart);
+    for (final cat in thisWeekCats.keys) {
+      final thisVal = thisWeekCats[cat] ?? 0;
+      final lastVal = lastWeekCats[cat] ?? 0;
+      if (lastVal > 10 && thisVal > lastVal * 1.3) {
+        final pct = ((thisVal - lastVal) / lastVal * 100).round();
+        final catName = cat[0].toUpperCase() + cat.substring(1);
+        insights.add('$catName spending is up $pct% this week.');
+        break; // only show top category change
+      }
+    }
+
+    // Budget pace prediction
+    final budget = await _db.getActiveBudget();
+    if (budget != null) {
+      final budgetStart = budget.startDate;
+      final budgetEnd = budget.endDate;
+      final totalDays = budgetEnd.difference(budgetStart).inDays + 1;
+      final elapsed = today.difference(budgetStart).inDays + 1;
+
+      if (elapsed > 3 && elapsed < totalDays) {
+        final spentSoFar = await _db.getTotalInRange(
+          budgetStart,
+          today.add(const Duration(days: 1)),
+        );
+        final dailyRate = spentSoFar / elapsed;
+        final projected = dailyRate * totalDays;
+
+        if (projected > budget.amount * 1.1) {
+          final overBy = (projected - budget.amount).toStringAsFixed(0);
+          final daysLeft = totalDays - elapsed;
+          insights.add('At this pace, you\'ll exceed your budget by \$$overBy with $daysLeft days left.');
+        } else if (projected < budget.amount * 0.8) {
+          insights.add('You\'re well under budget — on track to save \$${(budget.amount - projected).toStringAsFixed(0)}.');
+        }
+      }
+    }
+
+    // No-spend days this week
+    final todayCount = await _db.getCountInRange(today, today.add(const Duration(days: 1)));
+    if (todayCount == 0 && now.hour >= 18) {
+      insights.add('No expenses logged today — did you forget to track something?');
+    }
+
+    // Biggest spending day pattern
+    final dailySpend = await _db.getDailyExpenses(
+      today.subtract(const Duration(days: 28)),
+      today.add(const Duration(days: 1)),
+    );
+    if (dailySpend.length >= 7) {
+      final dayTotals = <int, double>{}; // weekday → total
+      final dayCounts = <int, int>{};
+      for (final entry in dailySpend.entries) {
+        final wd = entry.key.weekday;
+        dayTotals[wd] = (dayTotals[wd] ?? 0) + entry.value;
+        dayCounts[wd] = (dayCounts[wd] ?? 0) + 1;
+      }
+      int? biggestDay;
+      double biggestAvg = 0;
+      for (final wd in dayTotals.keys) {
+        final avg = dayTotals[wd]! / dayCounts[wd]!;
+        if (avg > biggestAvg) {
+          biggestAvg = avg;
+          biggestDay = wd;
+        }
+      }
+      if (biggestDay != null && insights.length < 3) {
+        const dayNames = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+        insights.add('Your biggest spending day is usually ${dayNames[biggestDay]}.');
+      }
+    }
+
+    return insights.take(3).toList();
   }
 
   // --- Budget ---

@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import '../models/budget.dart';
 import '../models/expense.dart';
 import '../models/person.dart';
+import '../models/recurring_expense.dart';
 import '../models/split.dart';
 
 class DatabaseService {
@@ -17,7 +18,7 @@ class DatabaseService {
     final path = join(await getDatabasesPath(), 'expenses.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE expenses(
@@ -25,7 +26,8 @@ class DatabaseService {
             amount REAL NOT NULL,
             description TEXT NOT NULL,
             category TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            image_path TEXT
           )
         ''');
         await db.execute('''
@@ -57,6 +59,18 @@ class DatabaseService {
             start_date TEXT NOT NULL,
             end_date TEXT NOT NULL,
             created_at TEXT NOT NULL
+          )
+        ''');
+        await db.execute('''
+          CREATE TABLE recurring_expenses(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            amount REAL NOT NULL,
+            description TEXT NOT NULL,
+            category TEXT NOT NULL,
+            day_of_month INTEGER NOT NULL,
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL,
+            last_logged_at TEXT
           )
         ''');
       },
@@ -93,6 +107,21 @@ class DatabaseService {
               start_date TEXT NOT NULL,
               end_date TEXT NOT NULL,
               created_at TEXT NOT NULL
+            )
+          ''');
+        }
+        if (oldVersion < 4) {
+          await db.execute('ALTER TABLE expenses ADD COLUMN image_path TEXT');
+          await db.execute('''
+            CREATE TABLE recurring_expenses(
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              amount REAL NOT NULL,
+              description TEXT NOT NULL,
+              category TEXT NOT NULL,
+              day_of_month INTEGER NOT NULL,
+              is_active INTEGER NOT NULL DEFAULT 1,
+              created_at TEXT NOT NULL,
+              last_logged_at TEXT
             )
           ''');
         }
@@ -313,5 +342,74 @@ class DatabaseService {
     }
 
     return daily;
+  }
+
+  // --- Recurring Expenses ---
+
+  Future<int> insertRecurring(RecurringExpense recurring) async {
+    final db = await database;
+    return db.insert('recurring_expenses', recurring.toMap());
+  }
+
+  Future<List<RecurringExpense>> getRecurringExpenses() async {
+    final db = await database;
+    final maps = await db.query('recurring_expenses', orderBy: 'day_of_month ASC');
+    return maps.map(RecurringExpense.fromMap).toList();
+  }
+
+  Future<void> updateRecurring(RecurringExpense recurring) async {
+    final db = await database;
+    await db.update(
+      'recurring_expenses',
+      recurring.toMap(),
+      where: 'id = ?',
+      whereArgs: [recurring.id],
+    );
+  }
+
+  Future<void> deleteRecurring(int id) async {
+    final db = await database;
+    await db.delete('recurring_expenses', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // --- Insights queries ---
+
+  /// Get category totals for a date range.
+  Future<Map<String, double>> getCategoryTotals(DateTime from, DateTime to) async {
+    final db = await database;
+    final maps = await db.query(
+      'expenses',
+      columns: ['category', 'SUM(amount) as total'],
+      where: 'created_at >= ? AND created_at < ?',
+      whereArgs: [from.toIso8601String(), to.toIso8601String()],
+      groupBy: 'category',
+    );
+    final result = <String, double>{};
+    for (final row in maps) {
+      result[row['category'] as String] = (row['total'] as num).toDouble();
+    }
+    return result;
+  }
+
+  /// Get total spending in a date range.
+  Future<double> getTotalInRange(DateTime from, DateTime to) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT SUM(amount) as total FROM expenses WHERE created_at >= ? AND created_at < ?',
+      [from.toIso8601String(), to.toIso8601String()],
+    );
+    if (result.isEmpty || result.first['total'] == null) return 0.0;
+    return (result.first['total'] as num).toDouble();
+  }
+
+  /// Get expense count in a date range.
+  Future<int> getCountInRange(DateTime from, DateTime to) async {
+    final db = await database;
+    final result = await db.rawQuery(
+      'SELECT COUNT(*) as cnt FROM expenses WHERE created_at >= ? AND created_at < ?',
+      [from.toIso8601String(), to.toIso8601String()],
+    );
+    if (result.isEmpty) return 0;
+    return (result.first['cnt'] as int);
   }
 }

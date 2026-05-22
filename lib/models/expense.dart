@@ -84,6 +84,7 @@ class Expense {
   final String description;
   final Category category;
   final DateTime createdAt;
+  final String? imagePath;
 
   const Expense({
     this.id,
@@ -91,6 +92,7 @@ class Expense {
     required this.description,
     required this.category,
     required this.createdAt,
+    this.imagePath,
   });
 
   Map<String, dynamic> toMap() => {
@@ -99,6 +101,7 @@ class Expense {
         'description': description,
         'category': category.name,
         'created_at': createdAt.toIso8601String(),
+        'image_path': imagePath,
       };
 
   factory Expense.fromMap(Map<String, dynamic> map) => Expense(
@@ -110,6 +113,7 @@ class Expense {
           orElse: () => Category.other,
         ),
         createdAt: DateTime.parse(map['created_at'] as String),
+        imagePath: map['image_path'] as String?,
       );
 
   Expense copyWith({
@@ -118,6 +122,7 @@ class Expense {
     String? description,
     Category? category,
     DateTime? createdAt,
+    String? imagePath,
   }) =>
       Expense(
         id: id ?? this.id,
@@ -125,6 +130,7 @@ class Expense {
         description: description ?? this.description,
         category: category ?? this.category,
         createdAt: createdAt ?? this.createdAt,
+        imagePath: imagePath ?? this.imagePath,
       );
 
   @override

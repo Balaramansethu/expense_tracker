@@ -1,4 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:permission_handler/permission_handler.dart';
 import '../controllers/expense_controller.dart';
 import '../models/expense.dart';
@@ -21,6 +25,8 @@ class _VoiceSheetState extends State<VoiceSheet> with SingleTickerProviderStateM
   final _amountController = TextEditingController();
   final _descriptionController = TextEditingController();
   Category _selectedCategory = Category.other;
+  String? _attachedImagePath;
+  final _imagePicker = ImagePicker();
 
   ExpenseController get ctrl => widget.controller;
 
@@ -74,16 +80,57 @@ class _VoiceSheetState extends State<VoiceSheet> with SingleTickerProviderStateM
     ctrl.startListening();
   }
 
+  Future<void> _pickReceipt() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1200,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    // Copy to app directory for persistence
+    final appDir = await getApplicationDocumentsDirectory();
+    final receiptDir = Directory(p.join(appDir.path, 'receipts'));
+    if (!receiptDir.existsSync()) receiptDir.createSync();
+    final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final savedPath = p.join(receiptDir.path, fileName);
+    await File(picked.path).copy(savedPath);
+
+    setState(() => _attachedImagePath = savedPath);
+  }
+
   Future<void> _save() async {
     final amount = double.tryParse(_amountController.text);
     final description = _descriptionController.text.trim();
 
     if (amount == null || amount <= 0 || description.isEmpty) return;
 
-    await ctrl.saveExpense(
+    await ctrl.saveExpenseWithImage(
       amount: amount,
       description: description,
       category: _selectedCategory,
+      imagePath: _attachedImagePath,
     );
 
     if (mounted) Navigator.of(context).pop();
@@ -288,14 +335,32 @@ class _VoiceSheetState extends State<VoiceSheet> with SingleTickerProviderStateM
                 ],
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _openSplit,
-                  icon: const Icon(Icons.call_split, size: 18),
-                  label: const Text('Split'),
-                ),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openSplit,
+                      icon: const Icon(Icons.call_split, size: 18),
+                      label: const Text('Split'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _pickReceipt,
+                      icon: Icon(
+                        _attachedImagePath != null ? Icons.check_circle : Icons.camera_alt,
+                        size: 18,
+                      ),
+                      label: Text(_attachedImagePath != null ? 'Receipt' : 'Receipt'),
+                    ),
+                  ),
+                ],
               ),
+              if (_attachedImagePath != null) ...[
+                const SizedBox(height: 8),
+                _buildReceiptSection(Theme.of(context)),
+              ],
             ],
           )
         else if (isListening)
@@ -441,7 +506,12 @@ class _VoiceSheetState extends State<VoiceSheet> with SingleTickerProviderStateM
         ),
         const SizedBox(height: 12),
         _buildCategoryChips(theme),
-        const SizedBox(height: 20),
+        const SizedBox(height: 12),
+
+        // Receipt attachment
+        _buildReceiptSection(theme),
+        const SizedBox(height: 16),
+
         Row(
           children: [
             Expanded(
@@ -471,6 +541,54 @@ class _VoiceSheetState extends State<VoiceSheet> with SingleTickerProviderStateM
           ],
         ),
       ],
+    );
+  }
+
+  Widget _buildReceiptSection(ThemeData theme) {
+    if (_attachedImagePath != null) {
+      return Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: Image.file(
+              File(_attachedImagePath!),
+              width: 48,
+              height: 48,
+              fit: BoxFit.cover,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Receipt attached',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: Colors.green.shade700,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          IconButton(
+            onPressed: () => setState(() => _attachedImagePath = null),
+            icon: Icon(Icons.close, size: 18, color: theme.colorScheme.error),
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      );
+    }
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: TextButton.icon(
+        onPressed: _pickReceipt,
+        icon: Icon(Icons.camera_alt, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+        label: Text(
+          'Attach receipt',
+          style: TextStyle(
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+            fontSize: 13,
+          ),
+        ),
+        style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+      ),
     );
   }
 

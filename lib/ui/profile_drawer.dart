@@ -4,6 +4,8 @@ import '../models/person.dart';
 import 'budget_calendar_sheet.dart';
 import 'my_expenses_detail_sheet.dart';
 import 'person_tab_sheet.dart';
+import 'nudge_settings_sheet.dart';
+import 'recurring_sheet.dart';
 
 class ProfileDrawer extends StatefulWidget {
   final ExpenseController controller;
@@ -229,6 +231,54 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                 },
                 icon: const Icon(Icons.calendar_month, size: 18),
                 label: const Text('Budget & Calendar'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Smart Reminders button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (_) => const NudgeSettingsSheet(),
+                  );
+                },
+                icon: const Icon(Icons.notifications_none, size: 18),
+                label: const Text('Smart Reminders'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+
+            // Recurring Expenses button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (_) => RecurringSheet(controller: ctrl),
+                  ).whenComplete(() => _loadData());
+                },
+                icon: const Icon(Icons.repeat, size: 18),
+                label: const Text('Recurring Expenses'),
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),

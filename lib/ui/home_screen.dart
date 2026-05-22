@@ -1,11 +1,14 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../controllers/expense_controller.dart';
 import '../models/expense.dart';
 import 'voice_sheet.dart';
+import 'quick_tap_sheet.dart';
 import 'people_sheet.dart';
 import 'profile_drawer.dart';
 import 'widgets/summary_header.dart';
 import 'widgets/expense_tile.dart';
+import 'widgets/insights_card.dart';
 
 class HomeScreen extends StatefulWidget {
   final ExpenseController controller;
@@ -29,9 +32,20 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       builder: (_) => VoiceSheet(controller: ctrl),
     ).whenComplete(() {
-      // Guarantee speech stops regardless of how sheet was dismissed
       ctrl.stopAndCleanup();
     });
+  }
+
+  void _openQuickTap() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => QuickTapSheet(controller: ctrl),
+    );
   }
 
   void _openProfile() {
@@ -140,6 +154,20 @@ class _HomeScreenState extends State<HomeScreen> {
                       );
                     }).toList(),
                   ),
+                  // Receipt image
+                  if (expense.imagePath != null) ...[
+                    const SizedBox(height: 12),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.file(
+                        File(expense.imagePath!),
+                        height: 120,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   Row(
                     children: [
@@ -250,9 +278,23 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
           ),
-          floatingActionButton: FloatingActionButton(
-            onPressed: _openVoiceSheet,
-            child: const Icon(Icons.mic),
+          floatingActionButton: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Quick-tap button
+              FloatingActionButton.small(
+                heroTag: 'quick',
+                onPressed: _openQuickTap,
+                child: const Icon(Icons.add, size: 22),
+              ),
+              const SizedBox(width: 12),
+              // Voice button (primary)
+              FloatingActionButton(
+                heroTag: 'voice',
+                onPressed: _openVoiceSheet,
+                child: const Icon(Icons.mic),
+              ),
+            ],
           ),
           floatingActionButtonLocation:
               FloatingActionButtonLocation.centerFloat,
@@ -314,6 +356,9 @@ class _HomeScreenState extends State<HomeScreen> {
             onNext: ctrl.nextMonth,
             canGoNext: ctrl.canGoNext,
           ),
+        ),
+        SliverToBoxAdapter(
+          child: InsightsCard(controller: ctrl),
         ),
         for (final section in sections) ...[
           SliverToBoxAdapter(

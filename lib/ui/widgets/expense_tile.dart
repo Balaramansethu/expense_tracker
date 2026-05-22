@@ -50,9 +50,21 @@ class ExpenseTile extends StatelessWidget {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        subtitle: Text(
-          DateFormat.jm().format(expense.createdAt),
-          style: theme.textTheme.bodySmall,
+        subtitle: Row(
+          children: [
+            Text(
+              DateFormat.jm().format(expense.createdAt),
+              style: theme.textTheme.bodySmall,
+            ),
+            if (expense.imagePath != null) ...[
+              const SizedBox(width: 6),
+              Icon(
+                Icons.receipt,
+                size: 13,
+                color: theme.colorScheme.primary.withValues(alpha: 0.6),
+              ),
+            ],
+          ],
         ),
         trailing: Text(
           NumberFormat.currency(symbol: '\$').format(expense.amount),

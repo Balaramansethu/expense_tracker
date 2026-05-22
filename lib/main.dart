@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
 import 'controllers/expense_controller.dart';
+import 'services/notification_service.dart';
 import 'ui/home_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   final controller = ExpenseController();
   await controller.init();
+
+  // Initialize notifications and reschedule if enabled
+  final notifService = NotificationService();
+  await notifService.init();
+  await notifService.rescheduleIfNeeded();
+
   runApp(MyApp(controller: controller));
 }
 
