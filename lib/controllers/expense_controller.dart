@@ -432,6 +432,18 @@ class ExpenseController extends ChangeNotifier {
     return _db.getAllBalances();
   }
 
+  /// Get all expenses (no month filter) for detail view.
+  Future<List<Expense>> getAllExpenses() async {
+    return _db.getAllExpenses();
+  }
+
+  /// Clear all expenses and splits. Full reset.
+  Future<void> clearAllExpenses() async {
+    await _db.clearAllExpenses();
+    await _reload();
+    notifyListeners();
+  }
+
   /// Clear all splits for a person (settle up / clear tab).
   Future<void> clearPersonTab(int personId) async {
     await _db.clearSplitsForPerson(personId);

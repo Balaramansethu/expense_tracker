@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../controllers/expense_controller.dart';
 import '../models/person.dart';
+import 'my_expenses_detail_sheet.dart';
 import 'person_tab_sheet.dart';
 
 class ProfileDrawer extends StatefulWidget {
@@ -144,6 +145,25 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                 ),
               ],
             ),
+            if (othersOwe > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.error.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '- \$${othersOwe.toStringAsFixed(2)} split to others',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.error,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Container(
               width: double.infinity,
@@ -163,6 +183,30 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // My Expense Detail button
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.tonalIcon(
+                onPressed: () {
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    shape: const RoundedRectangleBorder(
+                      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                    ),
+                    builder: (_) => MyExpensesDetailSheet(controller: ctrl),
+                  ).whenComplete(() => _loadData());
+                },
+                icon: const Icon(Icons.receipt_long, size: 18),
+                label: const Text('My Expense Detail'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
             ),
             const SizedBox(height: 20),

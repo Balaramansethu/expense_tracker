@@ -202,6 +202,18 @@ class DatabaseService {
     return balances;
   }
 
+  Future<List<Expense>> getAllExpenses() async {
+    final db = await database;
+    final maps = await db.query('expenses', orderBy: 'created_at DESC');
+    return maps.map(Expense.fromMap).toList();
+  }
+
+  Future<void> clearAllExpenses() async {
+    final db = await database;
+    await db.delete('expenses');
+    await db.delete('splits');
+  }
+
   Future<void> clearSplitsForPerson(int personId) async {
     final db = await database;
     await db.delete('splits', where: 'person_id = ?', whereArgs: [personId]);
