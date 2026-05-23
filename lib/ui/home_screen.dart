@@ -53,26 +53,20 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _openProfile() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ProfileDrawer(controller: ctrl),
       ),
-      builder: (_) => ProfileDrawer(controller: ctrl),
     );
   }
 
   void _openPeopleSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PeopleSheet(controller: ctrl),
       ),
-      builder: (_) => PeopleSheet(controller: ctrl),
     );
   }
 

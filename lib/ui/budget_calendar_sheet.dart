@@ -33,7 +33,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
     double totalSpent = 0;
 
     if (budget != null) {
-      // End date is inclusive, so add 1 day for the query range
       final queryEnd = budget.endDate.add(const Duration(days: 1));
       daily = await ctrl.getDailySpending(budget.startDate, queryEnd);
       totalSpent = daily.values.fold(0.0, (a, b) => a + b);
@@ -94,75 +93,54 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.88,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Budget & Spending'),
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Text('Budget & Spending', style: theme.textTheme.titleMedium),
-          const SizedBox(height: 16),
-
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            )
-          else if (_budget == null)
-            _buildNoBudget(theme)
-          else
-            Flexible(child: _buildBudgetView(theme)),
-        ],
-      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _budget == null
+              ? _buildNoBudget(theme)
+              : _buildBudgetView(theme),
     );
   }
 
   Widget _buildNoBudget(ThemeData theme) {
-    return Column(
-      children: [
-        const SizedBox(height: 24),
-        Icon(
-          Icons.savings_outlined,
-          size: 56,
-          color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          'No budget set',
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            Icons.savings_outlined,
+            size: 56,
+            color: theme.colorScheme.onSurface.withValues(alpha: 0.15),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Set a monthly budget to track your spending\nand see a daily breakdown on the calendar.',
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+          const SizedBox(height: 16),
+          Text(
+            'No budget set',
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+            ),
           ),
-          textAlign: TextAlign.center,
-        ),
-        const SizedBox(height: 24),
-        FilledButton.icon(
-          onPressed: _openSetBudget,
-          icon: const Icon(Icons.add, size: 18),
-          label: const Text('Set Budget'),
-          style: FilledButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+          const SizedBox(height: 8),
+          Text(
+            'Set a monthly budget to track your spending\nand see a daily breakdown on the calendar.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withValues(alpha: 0.3),
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
-      ],
+          const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: _openSetBudget,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Set Budget'),
+            style: FilledButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -175,7 +153,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
     final isOverBudget = _totalSpent > budget.amount;
     final dateFormat = DateFormat('dd MMM');
 
-    // Progress bar color
     Color progressColor;
     if (progress < 0.6) {
       progressColor = Colors.green;
@@ -185,150 +162,146 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
       progressColor = theme.colorScheme.error;
     }
 
-    return SingleChildScrollView(
-      child: Column(
-        children: [
-          // Budget summary card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Budget',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    Text(
-                      '\$${budget.amount.toStringAsFixed(2)}',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Progress bar
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    minHeight: 10,
-                    backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
-                    valueColor: AlwaysStoppedAnimation(progressColor),
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Spent',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          '\$${_totalSpent.toStringAsFixed(2)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: progressColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text(
-                          isOverBudget ? 'Over by' : 'Remaining',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                            fontSize: 11,
-                          ),
-                        ),
-                        Text(
-                          isOverBudget
-                              ? '\$${(-remaining).toStringAsFixed(2)}'
-                              : '\$${remaining.toStringAsFixed(2)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: isOverBudget
-                                ? theme.colorScheme.error
-                                : Colors.green.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${dateFormat.format(budget.startDate)} – ${dateFormat.format(budget.endDate)}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                  ),
-                ),
-              ],
-            ),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+      children: [
+        // Budget summary card
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(14),
           ),
-          const SizedBox(height: 16),
-
-          // Calendar
-          _buildCalendar(theme, budget),
-          const SizedBox(height: 16),
-
-          // Legend
-          _buildLegend(theme),
-          const SizedBox(height: 16),
-
-          // Action buttons
-          Row(
+          child: Column(
             children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _deleteBudget,
-                  icon: Icon(Icons.delete_outline, size: 16, color: theme.colorScheme.error),
-                  label: Text(
-                    'Remove',
-                    style: TextStyle(color: theme.colorScheme.error),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Budget',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    ),
                   ),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.4)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+                  Text(
+                    '\$${budget.amount.toStringAsFixed(2)}',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(6),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 10,
+                  backgroundColor: theme.colorScheme.onSurface.withValues(alpha: 0.08),
+                  valueColor: AlwaysStoppedAnimation(progressColor),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 2,
-                child: FilledButton.icon(
-                  onPressed: _openSetBudget,
-                  icon: const Icon(Icons.edit, size: 16),
-                  label: const Text('Edit Budget'),
-                  style: FilledButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Spent',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        '\$${_totalSpent.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: progressColor,
+                        ),
+                      ),
+                    ],
                   ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        isOverBudget ? 'Over by' : 'Remaining',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          fontSize: 11,
+                        ),
+                      ),
+                      Text(
+                        isOverBudget
+                            ? '\$${(-remaining).toStringAsFixed(2)}'
+                            : '\$${remaining.toStringAsFixed(2)}',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: isOverBudget
+                              ? theme.colorScheme.error
+                              : Colors.green.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${dateFormat.format(budget.startDate)} – ${dateFormat.format(budget.endDate)}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
                 ),
               ),
             ],
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 16),
+
+        // Calendar
+        _buildCalendar(theme, budget),
+        const SizedBox(height: 16),
+
+        // Legend
+        _buildLegend(theme),
+        const SizedBox(height: 24),
+
+        // Action buttons
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _deleteBudget,
+                icon: Icon(Icons.delete_outline, size: 16, color: theme.colorScheme.error),
+                label: Text(
+                  'Remove',
+                  style: TextStyle(color: theme.colorScheme.error),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: theme.colorScheme.error.withValues(alpha: 0.4)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: FilledButton.icon(
+                onPressed: _openSetBudget,
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('Edit Budget'),
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -338,10 +311,7 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
     final totalDays = end.difference(start).inDays + 1;
     final dailyBudget = budget.amount / totalDays;
 
-    // Calendar starts from the Monday of the week containing start date
-    // weekday: 1=Mon, 7=Sun
     final calStart = start.subtract(Duration(days: (start.weekday - 1)));
-    // Calendar ends at the Sunday of the week containing end date
     final calEnd = end.add(Duration(days: (7 - end.weekday)));
     final totalCalDays = calEnd.difference(calStart).inDays + 1;
 
@@ -350,7 +320,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
 
     return Column(
       children: [
-        // Header label
         Align(
           alignment: Alignment.centerLeft,
           child: Text(
@@ -362,8 +331,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
           ),
         ),
         const SizedBox(height: 10),
-
-        // Day labels
         Row(
           children: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
               .map((d) => Expanded(
@@ -381,8 +348,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
               .toList(),
         ),
         const SizedBox(height: 6),
-
-        // Calendar grid
         GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -401,7 +366,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
             final spent = _dailySpending[day] ?? 0;
             final hasSpending = spent > 0;
 
-            // Color based on spending relative to daily budget
             Color cellColor;
             Color textColor;
             if (!isInRange) {
@@ -504,9 +468,6 @@ class _BudgetCalendarSheetState extends State<BudgetCalendarSheet> {
   String _formatCompact(double value) {
     if (value >= 1000) {
       return '${(value / 1000).toStringAsFixed(1)}k';
-    }
-    if (value == value.roundToDouble()) {
-      return value.toStringAsFixed(0);
     }
     return value.toStringAsFixed(0);
   }

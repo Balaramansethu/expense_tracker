@@ -65,50 +65,23 @@ class _RecurringSheetState extends State<RecurringSheet> {
     final theme = Theme.of(context);
     final recurring = ctrl.recurringExpenses;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Recurring Expenses'),
+        actions: [
+          FilledButton.tonalIcon(
+            onPressed: _openAddSheet,
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add'),
+            style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
+          ),
+          const SizedBox(width: 12),
+        ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          Row(
-            children: [
-              Expanded(
-                child: Text('Recurring Expenses', style: theme.textTheme.titleMedium),
-              ),
-              FilledButton.tonalIcon(
-                onPressed: _openAddSheet,
-                icon: const Icon(Icons.add, size: 18),
-                label: const Text('Add'),
-                style: FilledButton.styleFrom(visualDensity: VisualDensity.compact),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Auto-logged on the specified day each month',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          if (recurring.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 32),
+      body: recurring.isEmpty
+          ? Center(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.repeat, size: 48, color: theme.colorScheme.onSurface.withValues(alpha: 0.15)),
                   const SizedBox(height: 12),
@@ -129,104 +102,110 @@ class _RecurringSheetState extends State<RecurringSheet> {
                 ],
               ),
             )
-          else
-            Flexible(
-              child: ListView.separated(
-                shrinkWrap: true,
-                itemCount: recurring.length,
-                separatorBuilder: (_, __) => Divider(
-                  height: 1,
-                  color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+              children: [
+                Text(
+                  'Auto-logged on the specified day each month',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                itemBuilder: (context, index) {
+                const SizedBox(height: 12),
+                ...List.generate(recurring.length, (index) {
                   final r = recurring[index];
-                  return ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: r.isActive
-                            ? r.category.color.withValues(alpha: 0.12)
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.06),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        r.category.icon,
-                        size: 20,
-                        color: r.isActive
-                            ? r.category.color
-                            : theme.colorScheme.onSurface.withValues(alpha: 0.3),
-                      ),
-                    ),
-                    title: Text(
-                      r.description,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w500,
-                        color: r.isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                        decoration: r.isActive ? null : TextDecoration.lineThrough,
-                      ),
-                    ),
-                    subtitle: Text(
-                      'Every month on the ${_ordinal(r.dayOfMonth)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                        fontSize: 11,
-                      ),
-                    ),
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          '\$${r.amount.toStringAsFixed(2)}',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: r.isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                  return Column(
+                    children: [
+                      ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                        leading: Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            color: r.isActive
+                                ? r.category.color.withValues(alpha: 0.12)
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            r.category.icon,
+                            size: 20,
+                            color: r.isActive
+                                ? r.category.color
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.3),
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        PopupMenuButton<String>(
-                          iconSize: 20,
-                          onSelected: (value) {
-                            if (value == 'toggle') _toggleActive(r);
-                            if (value == 'delete') _deleteRecurring(r);
-                          },
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: 'toggle',
-                              child: Text(r.isActive ? 'Pause' : 'Resume'),
+                        title: Text(
+                          r.description,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w500,
+                            color: r.isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            decoration: r.isActive ? null : TextDecoration.lineThrough,
+                          ),
+                        ),
+                        subtitle: Text(
+                          'Every month on the ${_ordinal(r.dayOfMonth)}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                            fontSize: 11,
+                          ),
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '\$${r.amount.toStringAsFixed(2)}',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: r.isActive ? null : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                              ),
                             ),
-                            const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                            const SizedBox(width: 4),
+                            PopupMenuButton<String>(
+                              iconSize: 20,
+                              onSelected: (value) {
+                                if (value == 'toggle') _toggleActive(r);
+                                if (value == 'delete') _deleteRecurring(r);
+                              },
+                              itemBuilder: (_) => [
+                                PopupMenuItem(
+                                  value: 'toggle',
+                                  child: Text(r.isActive ? 'Pause' : 'Resume'),
+                                ),
+                                const PopupMenuItem(value: 'delete', child: Text('Delete')),
+                              ],
+                            ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      if (index < recurring.length - 1)
+                        Divider(
+                          height: 1,
+                          color: theme.colorScheme.onSurface.withValues(alpha: 0.06),
+                        ),
+                    ],
                   );
-                },
-              ),
-            ),
-
-          if (recurring.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                'Monthly auto-total: \$${recurring.where((r) => r.isActive).fold(0.0, (sum, r) => sum + r.amount).toStringAsFixed(2)}',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.primary,
-                  fontWeight: FontWeight.w500,
+                }),
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer.withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Monthly auto-total: \$${recurring.where((r) => r.isActive).fold(0.0, (sum, r) => sum + r.amount).toStringAsFixed(2)}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
+              ],
             ),
-          ],
-        ],
-      ),
     );
   }
 
@@ -317,8 +296,6 @@ class _AddRecurringSheetState extends State<_AddRecurringSheet> {
             ),
           ),
           const SizedBox(height: 12),
-
-          // Day of month picker
           Row(
             children: [
               Text('Day of month:', style: theme.textTheme.bodyMedium),
@@ -339,8 +316,6 @@ class _AddRecurringSheetState extends State<_AddRecurringSheet> {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Category
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -359,7 +334,6 @@ class _AddRecurringSheetState extends State<_AddRecurringSheet> {
             }).toList(),
           ),
           const SizedBox(height: 20),
-
           Row(
             children: [
               Expanded(

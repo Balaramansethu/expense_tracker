@@ -53,47 +53,27 @@ class _PeopleSheetState extends State<PeopleSheet> {
   }
 
   void _openPersonTab(Person person) {
-    Navigator.pop(context);
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PersonTabSheet(controller: ctrl, person: person),
       ),
-      builder: (_) => PersonTabSheet(controller: ctrl, person: person),
-    );
+    ).then((_) => _loadBalances());
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final people = ctrl.people;
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: bottomInset),
-      child: Container(
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('People'),
+      ),
+      body: Padding(
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-        constraints: BoxConstraints(
-          maxHeight: MediaQuery.of(context).size.height * 0.7,
-        ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            // Drag handle
-            Container(
-              width: 40,
-              height: 4,
-              margin: const EdgeInsets.only(bottom: 20),
-              decoration: BoxDecoration(
-                color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Text('People', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 16),
-
             // Add person input
             Row(
               children: [
@@ -124,20 +104,20 @@ class _PeopleSheetState extends State<PeopleSheet> {
 
             // People list
             if (people.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Text(
-                  'No people added yet.\nAdd someone to start splitting expenses.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    'No people added yet.\nAdd someone to start splitting expenses.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
               )
             else
-              Flexible(
+              Expanded(
                 child: ListView.builder(
-                  shrinkWrap: true,
                   itemCount: people.length,
                   itemBuilder: (context, index) {
                     final person = people[index];

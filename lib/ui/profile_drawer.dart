@@ -72,15 +72,12 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
   }
 
   void _openPersonTab(Person person) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => PersonTabSheet(controller: ctrl, person: person),
       ),
-      builder: (_) => PersonTabSheet(controller: ctrl, person: person),
-    ).whenComplete(() => _loadData());
+    ).then((_) => _loadData());
   }
 
   @override
@@ -89,286 +86,232 @@ class _ProfileDrawerState extends State<ProfileDrawer> {
     final people = ctrl.people;
     final othersOwe = _totalExpenses - _myActualShare;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.85,
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Container(
-            width: 40,
-            height: 4,
-            margin: const EdgeInsets.only(bottom: 20),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.onSurface.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(2),
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 16,
+              backgroundColor: theme.colorScheme.primary,
+              child: const Icon(Icons.person, size: 18, color: Colors.white),
             ),
-          ),
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundColor: theme.colorScheme.primary,
-                child: const Icon(Icons.person, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
-              Text('My Profile', style: theme.textTheme.titleLarge),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          if (_loading)
-            const Padding(
-              padding: EdgeInsets.all(32),
-              child: CircularProgressIndicator(),
-            )
-          else
-            Expanded(
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+            const SizedBox(width: 10),
+            const Text('My Profile'),
+          ],
+        ),
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
+              children: [
+                // Summary cards
+                Row(
                   children: [
-                    // Summary cards
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _statCard(
-                            theme,
-                            'Total Expenses',
-                            '\$${_totalExpenses.toStringAsFixed(2)}',
-                            theme.colorScheme.onSurface,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _statCard(
-                            theme,
-                            'My Actual Share',
-                            '\$${_myActualShare.toStringAsFixed(2)}',
-                            theme.colorScheme.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (othersOwe > 0) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.error.withValues(alpha: 0.06),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          '- \$${othersOwe.toStringAsFixed(2)} split to others',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.error,
-                            fontWeight: FontWeight.w600,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                      decoration: BoxDecoration(
-                        color: othersOwe > 0
-                            ? Colors.green.withValues(alpha: 0.08)
-                            : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        othersOwe > 0
-                            ? 'Others owe you \$${othersOwe.toStringAsFixed(2)}'
-                            : 'No outstanding splits',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: othersOwe > 0 ? Colors.green.shade700 : theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                          fontWeight: FontWeight.w500,
-                        ),
-                        textAlign: TextAlign.center,
+                    Expanded(
+                      child: _statCard(
+                        theme,
+                        'Total Expenses',
+                        '\$${_totalExpenses.toStringAsFixed(2)}',
+                        theme.colorScheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // My Expense Detail button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Theme.of(context).colorScheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                            ),
-                            builder: (_) => MyExpensesDetailSheet(controller: ctrl),
-                          ).whenComplete(() => _loadData());
-                        },
-                        icon: const Icon(Icons.receipt_long, size: 18),
-                        label: const Text('My Expense Detail'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _statCard(
+                        theme,
+                        'My Actual Share',
+                        '\$${_myActualShare.toStringAsFixed(2)}',
+                        theme.colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 8),
-
-                    // Budget & Calendar button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Theme.of(context).colorScheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                            ),
-                            builder: (_) => BudgetCalendarSheet(controller: ctrl),
-                          ).whenComplete(() => _loadData());
-                        },
-                        icon: const Icon(Icons.calendar_month, size: 18),
-                        label: const Text('Budget & Calendar'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Smart Reminders button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Theme.of(context).colorScheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                            ),
-                            builder: (_) => const NudgeSettingsSheet(),
-                          );
-                        },
-                        icon: const Icon(Icons.notifications_none, size: 18),
-                        label: const Text('Smart Reminders'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    // Recurring Expenses button
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton.tonalIcon(
-                        onPressed: () {
-                          showModalBottomSheet(
-                            context: context,
-                            isScrollControlled: true,
-                            backgroundColor: Theme.of(context).colorScheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-                            ),
-                            builder: (_) => RecurringSheet(controller: ctrl),
-                          ).whenComplete(() => _loadData());
-                        },
-                        icon: const Icon(Icons.repeat, size: 18),
-                        label: const Text('Recurring Expenses'),
-                        style: FilledButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Balances section
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        'Balances',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (people.isEmpty)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        child: Text(
-                          'No people added yet.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                          ),
-                        ),
-                      )
-                    else
-                      ...people.map((person) {
-                        final balance = _balances[person.id] ?? 0.0;
-                        return ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          leading: CircleAvatar(
-                            radius: 18,
-                            backgroundColor: balance > 0
-                                ? theme.colorScheme.primary.withValues(alpha: 0.15)
-                                : theme.colorScheme.surfaceContainerHighest,
-                            child: Text(
-                              person.name[0].toUpperCase(),
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: balance > 0
-                                    ? theme.colorScheme.primary
-                                    : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                              ),
-                            ),
-                          ),
-                          title: Text(person.name),
-                          subtitle: Text(
-                            balance > 0
-                                ? 'Owes you \$${balance.toStringAsFixed(2)}'
-                                : 'Settled',
-                            style: TextStyle(
-                              color: balance > 0
-                                  ? theme.colorScheme.primary
-                                  : theme.colorScheme.onSurface.withValues(alpha: 0.4),
-                              fontSize: 12,
-                            ),
-                          ),
-                          trailing: balance > 0
-                              ? TextButton(
-                                  onPressed: () => _clearTab(person),
-                                  style: TextButton.styleFrom(
-                                    visualDensity: VisualDensity.compact,
-                                  ),
-                                  child: Text(
-                                    'Clear',
-                                    style: TextStyle(
-                                      color: theme.colorScheme.error,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                )
-                              : null,
-                          onTap: () => _openPersonTab(person),
-                        );
-                      }),
                   ],
                 ),
-              ),
+                if (othersOwe > 0) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.error.withValues(alpha: 0.06),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '- \$${othersOwe.toStringAsFixed(2)} split to others',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: othersOwe > 0
+                        ? Colors.green.withValues(alpha: 0.08)
+                        : theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    othersOwe > 0
+                        ? 'Others owe you \$${othersOwe.toStringAsFixed(2)}'
+                        : 'No outstanding splits',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: othersOwe > 0 ? Colors.green.shade700 : theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontWeight: FontWeight.w500,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // Feature buttons
+                _featureButton(
+                  theme,
+                  icon: Icons.receipt_long,
+                  label: 'My Expense Detail',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MyExpensesDetailSheet(controller: ctrl),
+                      ),
+                    ).then((_) => _loadData());
+                  },
+                ),
+                const SizedBox(height: 8),
+                _featureButton(
+                  theme,
+                  icon: Icons.calendar_month,
+                  label: 'Budget & Calendar',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => BudgetCalendarSheet(controller: ctrl),
+                      ),
+                    ).then((_) => _loadData());
+                  },
+                ),
+                const SizedBox(height: 8),
+                _featureButton(
+                  theme,
+                  icon: Icons.notifications_none,
+                  label: 'Smart Reminders',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const NudgeSettingsSheet(),
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                _featureButton(
+                  theme,
+                  icon: Icons.repeat,
+                  label: 'Recurring Expenses',
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => RecurringSheet(controller: ctrl),
+                      ),
+                    ).then((_) => _loadData());
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // Balances section
+                Text(
+                  'Balances',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                if (people.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    child: Text(
+                      'No people added yet.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  )
+                else
+                  ...people.map((person) {
+                    final balance = _balances[person.id] ?? 0.0;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: balance > 0
+                            ? theme.colorScheme.primary.withValues(alpha: 0.15)
+                            : theme.colorScheme.surfaceContainerHighest,
+                        child: Text(
+                          person.name[0].toUpperCase(),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: balance > 0
+                                ? theme.colorScheme.primary
+                                : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          ),
+                        ),
+                      ),
+                      title: Text(person.name),
+                      subtitle: Text(
+                        balance > 0
+                            ? 'Owes you \$${balance.toStringAsFixed(2)}'
+                            : 'Settled',
+                        style: TextStyle(
+                          color: balance > 0
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                          fontSize: 12,
+                        ),
+                      ),
+                      trailing: balance > 0
+                          ? TextButton(
+                              onPressed: () => _clearTab(person),
+                              style: TextButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              child: Text(
+                                'Clear',
+                                style: TextStyle(
+                                  color: theme.colorScheme.error,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            )
+                          : null,
+                      onTap: () => _openPersonTab(person),
+                    );
+                  }),
+              ],
             ),
-        ],
+    );
+  }
+
+  Widget _featureButton(ThemeData theme, {required IconData icon, required String label, required VoidCallback onTap}) {
+    return SizedBox(
+      width: double.infinity,
+      child: FilledButton.tonalIcon(
+        onPressed: onTap,
+        icon: Icon(icon, size: 18),
+        label: Text(label),
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+        ),
       ),
     );
   }
