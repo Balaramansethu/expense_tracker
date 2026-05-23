@@ -1,6 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import '../controllers/expense_controller.dart';
 import '../models/expense.dart';
+import 'split_sheet.dart';
 
 class QuickTapSheet extends StatefulWidget {
   final ExpenseController controller;
@@ -15,6 +20,8 @@ class _QuickTapSheetState extends State<QuickTapSheet> {
   final _amountCtrl = TextEditingController();
   final _noteCtrl = TextEditingController();
   Category _category = Category.other;
+  String? _attachedImagePath;
+  final _imagePicker = ImagePicker();
   bool _saving = false;
 
   ExpenseController get ctrl => widget.controller;
@@ -26,23 +33,84 @@ class _QuickTapSheetState extends State<QuickTapSheet> {
     super.dispose();
   }
 
+  Future<void> _pickReceipt() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Take Photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Choose from Gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source == null) return;
+
+    final picked = await _imagePicker.pickImage(
+      source: source,
+      maxWidth: 1200,
+      imageQuality: 80,
+    );
+    if (picked == null) return;
+
+    final appDir = await getApplicationDocumentsDirectory();
+    final receiptDir = Directory(p.join(appDir.path, 'receipts'));
+    if (!receiptDir.existsSync()) receiptDir.createSync();
+    final fileName = 'receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+    final savedPath = p.join(receiptDir.path, fileName);
+    await File(picked.path).copy(savedPath);
+
+    setState(() => _attachedImagePath = savedPath);
+  }
+
+  String get _description {
+    final note = _noteCtrl.text.trim();
+    return note.isEmpty ? _category.displayName : note;
+  }
+
   Future<void> _save() async {
     final amount = double.tryParse(_amountCtrl.text.trim());
     if (amount == null || amount <= 0) return;
 
     setState(() => _saving = true);
 
-    final desc = _noteCtrl.text.trim().isEmpty
-        ? _category.displayName
-        : _noteCtrl.text.trim();
-
-    await ctrl.saveExpense(
+    await ctrl.saveExpenseWithImage(
       amount: amount,
-      description: desc,
+      description: _description,
       category: _category,
+      imagePath: _attachedImagePath,
     );
 
     if (mounted) Navigator.pop(context);
+  }
+
+  void _openSplit() {
+    final amount = double.tryParse(_amountCtrl.text.trim());
+    if (amount == null || amount <= 0) return;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (_) => SplitSheet(
+        controller: ctrl,
+        amount: amount,
+        description: _description,
+        category: _category,
+      ),
+    );
   }
 
   @override
@@ -122,7 +190,7 @@ class _QuickTapSheetState extends State<QuickTapSheet> {
             ),
             const SizedBox(height: 10),
 
-            // Quick note — optional, small
+            // Quick note
             TextField(
               controller: _noteCtrl,
               textCapitalization: TextCapitalization.sentences,
@@ -142,19 +210,78 @@ class _QuickTapSheetState extends State<QuickTapSheet> {
                 isDense: true,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 10),
 
-            // Save button — full width
-            SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: FilledButton.icon(
-                onPressed: _saving ? null : _save,
-                icon: _saving
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.check, size: 20),
-                label: const Text('Save'),
+            // Receipt attachment
+            if (_attachedImagePath != null)
+              Row(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(
+                      File(_attachedImagePath!),
+                      width: 44,
+                      height: 44,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Receipt attached',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: Colors.green.shade700,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => setState(() => _attachedImagePath = null),
+                    icon: Icon(Icons.close, size: 18, color: theme.colorScheme.error),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
+              )
+            else
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _pickReceipt,
+                  icon: Icon(Icons.camera_alt, size: 16, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                  label: Text(
+                    'Attach receipt',
+                    style: TextStyle(
+                      color: theme.colorScheme.onSurface.withValues(alpha: 0.5),
+                      fontSize: 13,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+                ),
               ),
+            const SizedBox(height: 10),
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _openSplit,
+                    icon: const Icon(Icons.call_split, size: 18),
+                    label: const Text('Split'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  flex: 2,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _save,
+                    icon: _saving
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.check, size: 20),
+                    label: const Text('Save'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
