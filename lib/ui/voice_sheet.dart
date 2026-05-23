@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
@@ -40,9 +41,11 @@ class _VoiceSheetState extends State<VoiceSheet> with SingleTickerProviderStateM
 
     ctrl.addListener(_onControllerUpdate);
 
-    // Start listening immediately when sheet opens
+    // Start listening after the build phase completes
     if (!_isManualMode) {
-      ctrl.startListening();
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) ctrl.startListening();
+      });
     }
   }
 
