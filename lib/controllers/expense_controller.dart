@@ -41,6 +41,7 @@ class ExpenseController extends ChangeNotifier {
 
   // Undo support
   Expense? _lastDeleted;
+  List<SplitEntry> _lastDeletedSplits = [];
 
   // Getters
   List<Expense> get expenses => _expenses;
@@ -308,14 +309,30 @@ class ExpenseController extends ChangeNotifier {
   Future<void> deleteExpense(Expense expense) async {
     if (expense.id == null) return;
     _lastDeleted = expense;
+    _lastDeletedSplits = await _db.getSplitsForExpense(expense.id!);
     await _db.deleteExpense(expense.id!);
     await _reload();
   }
 
   Future<void> undoDelete() async {
     if (_lastDeleted == null) return;
-    await _db.insertExpense(_lastDeleted!);
+    final newId = await _db.insertExpense(_lastDeleted!);
+    // Restore splits with the new expense ID
+    for (final split in _lastDeletedSplits) {
+      final restored = SplitEntry(
+        expenseId: newId,
+        personId: split.personId,
+        personName: split.personName,
+        totalAmount: split.totalAmount,
+        splitAmount: split.splitAmount,
+        description: split.description,
+        category: split.category,
+        createdAt: split.createdAt,
+      );
+      await _db.insertSplit(restored);
+    }
     _lastDeleted = null;
+    _lastDeletedSplits = [];
     await _reload();
   }
 
@@ -421,6 +438,40 @@ class ExpenseController extends ChangeNotifier {
     }
 
     clearVoiceState();
+    await _reload();
+  }
+
+  /// Add splits to an existing expense (used from edit dialog).
+  /// Clears any previous splits for this expense first.
+  Future<void> addSplitsToExpense({
+    required int expenseId,
+    required double totalAmount,
+    required String description,
+    required Category category,
+    required Map<Person, double> splits,
+  }) async {
+    // Remove old splits for this expense
+    await _db.deleteSplitsForExpense(expenseId);
+
+    final now = DateTime.now();
+    for (final entry in splits.entries) {
+      final person = entry.key;
+      final splitAmount = entry.value;
+      if (splitAmount <= 0) continue;
+
+      final split = SplitEntry(
+        expenseId: expenseId,
+        personId: person.id!,
+        personName: person.name,
+        totalAmount: totalAmount,
+        splitAmount: splitAmount,
+        description: description,
+        category: category.name,
+        createdAt: now,
+      );
+      await _db.insertSplit(split);
+    }
+
     await _reload();
   }
 
@@ -550,13 +601,18 @@ class ExpenseController extends ChangeNotifier {
   /// Auto-log recurring expenses that are due.
   /// Called on app launch. For each active recurring expense,
   /// checks if it should have been logged this month (or missed months).
+  /// Auto-log recurring expenses that are due.
+  /// Called on app launch. For each active recurring expense,
+  /// checks if it should have been logged this month (or missed months).
   Future<int> processRecurringExpenses() async {
     final recurring = await _db.getRecurringExpenses();
     final now = DateTime.now();
-    int logged = 0;
+    int totalLogged = 0;
 
     for (final r in recurring) {
       if (!r.isActive) continue;
+
+      int itemLogged = 0;
 
       // Determine which months need logging
       DateTime checkFrom;
@@ -583,23 +639,24 @@ class ExpenseController extends ChangeNotifier {
             createdAt: dueDate,
           );
           await _db.insertExpense(expense);
-          logged++;
+          itemLogged++;
         }
 
         checkFrom = DateTime(checkFrom.year, checkFrom.month + 1, 1);
       }
 
-      // Update last_logged_at
-      if (logged > 0 || r.lastLoggedAt == null) {
+      // Update last_logged_at only if this item actually logged entries
+      if (itemLogged > 0) {
         await _db.updateRecurring(r.copyWith(lastLoggedAt: now));
+        totalLogged += itemLogged;
       }
     }
 
-    if (logged > 0) {
+    if (totalLogged > 0) {
       await _reload();
       await loadRecurring();
     }
-    return logged;
+    return totalLogged;
   }
 
   // --- Insights ---

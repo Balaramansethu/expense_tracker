@@ -82,7 +82,10 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     final descCtrl = TextEditingController(text: expense.description);
     var category = expense.category;
-    String? imagePath = expense.imagePath;
+    // Normalize empty string to null for consistent checking
+    String? imagePath = (expense.imagePath != null && expense.imagePath!.isNotEmpty)
+        ? expense.imagePath
+        : null;
     final imagePicker = ImagePicker();
 
     Future<void> pickReceiptInSheet(StateSetter setSheetState) async {
@@ -267,6 +270,13 @@ class _HomeScreenState extends State<HomeScreen> {
                               final amount = double.tryParse(amountCtrl.text);
                               final desc = descCtrl.text.trim();
                               if (amount == null || amount <= 0 || desc.isEmpty) return;
+                              // Update the expense first, then split
+                              ctrl.updateExpense(expense.copyWith(
+                                amount: amount,
+                                description: desc,
+                                category: category,
+                                imagePath: imagePath ?? '',
+                              ));
                               showModalBottomSheet(
                                 context: context,
                                 isScrollControlled: true,
@@ -279,6 +289,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   amount: amount,
                                   description: desc,
                                   category: category,
+                                  existingExpenseId: expense.id,
                                 ),
                               );
                             },

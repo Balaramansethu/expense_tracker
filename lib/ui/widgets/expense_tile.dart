@@ -56,7 +56,7 @@ class ExpenseTile extends StatelessWidget {
               DateFormat.jm().format(expense.createdAt),
               style: theme.textTheme.bodySmall,
             ),
-            if (expense.imagePath != null) ...[
+            if (expense.imagePath != null && expense.imagePath!.isNotEmpty) ...[
               const SizedBox(width: 6),
               Icon(
                 Icons.receipt,

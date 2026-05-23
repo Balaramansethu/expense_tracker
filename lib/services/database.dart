@@ -167,7 +167,23 @@ class DatabaseService {
 
   Future<void> deleteExpense(int id) async {
     final db = await database;
+    await db.delete('splits', where: 'expense_id = ?', whereArgs: [id]);
     await db.delete('expenses', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<SplitEntry>> getSplitsForExpense(int expenseId) async {
+    final db = await database;
+    final maps = await db.query(
+      'splits',
+      where: 'expense_id = ?',
+      whereArgs: [expenseId],
+    );
+    return maps.map(SplitEntry.fromMap).toList();
+  }
+
+  Future<void> deleteSplitsForExpense(int expenseId) async {
+    final db = await database;
+    await db.delete('splits', where: 'expense_id = ?', whereArgs: [expenseId]);
   }
 
   Future<Map<Category, double>> getMonthlySummary(int year, int month) async {

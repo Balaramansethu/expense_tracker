@@ -8,6 +8,7 @@ class SplitSheet extends StatefulWidget {
   final double amount;
   final String description;
   final Category category;
+  final int? existingExpenseId;
 
   const SplitSheet({
     super.key,
@@ -15,6 +16,7 @@ class SplitSheet extends StatefulWidget {
     required this.amount,
     required this.description,
     required this.category,
+    this.existingExpenseId,
   });
 
   @override
@@ -85,16 +87,28 @@ class _SplitSheetState extends State<SplitSheet> {
 
     if (splits.isEmpty) return;
 
-    await ctrl.saveSplitExpense(
-      amount: widget.amount,
-      description: widget.description,
-      category: widget.category,
-      splits: splits,
-    );
+    if (widget.existingExpenseId != null) {
+      // Adding splits to an existing expense (from edit dialog)
+      await ctrl.addSplitsToExpense(
+        expenseId: widget.existingExpenseId!,
+        totalAmount: widget.amount,
+        description: widget.description,
+        category: widget.category,
+        splits: splits,
+      );
+    } else {
+      // Creating a new expense with splits (from voice/quick-tap)
+      await ctrl.saveSplitExpense(
+        amount: widget.amount,
+        description: widget.description,
+        category: widget.category,
+        splits: splits,
+      );
+    }
 
     if (mounted) {
       Navigator.pop(context); // close split sheet
-      Navigator.pop(context); // close voice sheet
+      Navigator.pop(context); // close parent sheet
     }
   }
 
