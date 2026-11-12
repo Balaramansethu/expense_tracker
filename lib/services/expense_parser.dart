@@ -59,6 +59,7 @@ class ExpenseParser {
 
     // Replace number words with digits before matching
     var processed = _replaceNumberWords(text.trim());
+    processed = _normalizeDigitGroups(processed);
 
     double? amount;
     String? description;
@@ -140,6 +141,18 @@ class ExpenseParser {
     }
 
     return result;
+  }
+
+  static String _normalizeDigitGroups(String text) {
+    var normalized = text;
+    while (true) {
+      final updated = normalized.replaceAllMapped(
+        RegExp(r'(\d),(\d)'),
+        (m) => '${m.group(1)}${m.group(2)}',
+      );
+      if (updated == normalized) return normalized;
+      normalized = updated;
+    }
   }
 
   static String _cleanDescription(String desc) {
