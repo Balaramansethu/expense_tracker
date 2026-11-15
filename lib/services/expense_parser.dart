@@ -13,6 +13,14 @@ class ParsedExpense {
 }
 
 class ExpenseParser {
+  // "paid 300 for 2 movie tickets", "spent $40 on lunch for 2"
+  static final _leadingAmount = RegExp(
+    r'(?:spent|paid|cost(?:\s+me)?|gave|bought)\s+'
+    r'[\$£€]?\s*(\d+(?:\.\d{1,2})?)\s*(?:dollars?|bucks?)?\s+'
+    r'(?:on|for|at|to)\s+(.+)',
+    caseSensitive: false,
+  );
+
   // "spent 50 on lunch", "paid $30 for dinner", "cost me 25 bucks for gas"
   static final _verbFirst = RegExp(
     r'(?:spent|paid|cost(?:\s+me)?|gave|bought)\s+'
@@ -64,10 +72,18 @@ class ExpenseParser {
     String? description;
 
     // Try patterns in priority order
-    var match = _verbDescAmount.firstMatch(processed);
+    var match = _leadingAmount.firstMatch(processed);
     if (match != null) {
-      description = match.group(1)?.trim();
-      amount = double.tryParse(match.group(2) ?? '');
+      amount = double.tryParse(match.group(1) ?? '');
+      description = match.group(2)?.trim();
+    }
+
+    if (amount == null) {
+      match = _verbDescAmount.firstMatch(processed);
+      if (match != null) {
+        description = match.group(1)?.trim();
+        amount = double.tryParse(match.group(2) ?? '');
+      }
     }
 
     if (amount == null) {
